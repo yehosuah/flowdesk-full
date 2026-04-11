@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-flowdesk}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: infra/backend/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_SERVER: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-flowdesk}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      SECRET_KEY: ${SECRET_KEY:-change-me-before-sharing}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+
+  frontend:
+    build:
+      context: ./flowdesk-frt
+      dockerfile: Dockerfile
+    environment:
+      VITE_API_BASE_URL: /
+    command:
+      - npm
+      - run
+      - dev
+      - --
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5173"
+
+  gateway:
+    image: nginx:1.27-alpine
+    depends_on:
+      - backend
+      - frontend
+    environment:
+      FLOWDESK_BACKEND_UPSTREAM: backend:8000
+      FLOWDESK_FRONTEND_UPSTREAM: frontend:5173
+    ports:
+      - ${FLOWDESK_GATEWAY_PORT:-8080}:80
+    volumes:
+      - ./infra/gateway/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+
+volumes:
+  postgres_data:
