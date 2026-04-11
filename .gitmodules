@@ -1,0 +1,6 @@
+[submodule "flowdesk-bck"]
+	path = flowdesk-bck
+	url = https://github.com/fabianpradod/flowdesk-bck.git
+[submodule "flowdesk-frt"]
+	path = flowdesk-frt
+	url = https://github.com/yehosuah/flowdesk-frt.git
